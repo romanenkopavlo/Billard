@@ -17,11 +17,11 @@ score = [0,0]
 player = 0
 score_text = ax.text(-4,2.5,f"Joueur 1: {score[0]}  Joueur 2: {score[1]}", fontsize=14)
 
-# Positions fixes
+# Positions
 positions = [
-    np.array([[0.0,0.0]]),     # bille blanche
-    np.array([[2.0,0.5]]),     # bille rouge
-    np.array([[4.0,-0.5]])     # bille jaune
+    np.array([[0.0,0.0]]),     # blanche
+    np.array([[2.0,0.5]]),     # rouge
+    np.array([[4.0,-0.5]])     # jaune
 ]
 
 velocities = [
@@ -41,13 +41,12 @@ aim_arrow = patches.FancyArrowPatch((0,0),(0,0), color='black', arrowstyle='-|>'
 aim_arrow.set_visible(False)
 ax.add_patch(aim_arrow)
 
-friction = 0.99
+friction = 0.98  # un peu plus de friction pour ralentir les billes
 max_power = 15.0
 power_multiplier = 5.0
 
-# --- États du jeu ---
-choosing_direction = True  # toujours prêt à tirer
-white_selected = False     # True si on clique sur la blanche
+choosing_direction = True
+white_selected = False
 counted_collisions = set()
 
 # --- Clic ---
@@ -56,23 +55,21 @@ def on_click(event):
     if event.xdata is None or event.ydata is None:
         return
     x, y = event.xdata, event.ydata
-
-    # Tir possible uniquement si clic sur la blanche
-    if np.linalg.norm(np.array([x,y]) - positions[0][0]) <= R:
+    if np.linalg.norm(np.array([x,y])-positions[0][0]) <= R:
         white_selected = True
     else:
-        white_selected = False  # cliquer ailleurs ne fait rien
+        white_selected = False
 
-# --- Mouvement de la souris ---
+# --- Mouvement souris ---
 def on_move(event):
     if choosing_direction and white_selected and event.xdata is not None and event.ydata is not None:
         start = positions[0][0]
-        end = np.array([event.xdata, event.ydata])
+        end = np.array([event.xdata,event.ydata])
         direction = end - start
         norm = np.linalg.norm(direction)
         if norm > max_power:
             end = start + direction / norm * max_power
-        aim_arrow.set_positions(start, end)
+        aim_arrow.set_positions(start,end)
         aim_arrow.set_visible(True)
 
 # --- Relâchement pour tirer ---
@@ -80,7 +77,7 @@ def on_release(event):
     global velocities, white_selected
     if white_selected and event.xdata is not None and event.ydata is not None:
         start = positions[0][0]
-        end = np.array([event.xdata, event.ydata])
+        end = np.array([event.xdata,event.ydata])
         direction = end - start
         norm = np.linalg.norm(direction)
         if norm > max_power:
@@ -110,7 +107,6 @@ def handle_collision(i1,i2):
         v2n = velocities[i2][0]*nx + velocities[i2][1]*ny
         v2t = -velocities[i2][0]*ny + velocities[i2][1]*nx
 
-        # Échange normales
         v1n, v2n = v2n, v1n
 
         velocities[i1][0] = v1n*nx - v1t*ny
@@ -145,10 +141,18 @@ def animate(frame):
         pos[:,0] += velocities[idx][0]*0.02
         pos[:,1] += velocities[idx][1]*0.02
 
-        # Rebond murs
-        if pos[0,0]-R <= -2 or pos[0,0]+R >= 8:
+        # Rebond strict avec limitation position
+        if pos[0,0]-R < -2:
+            pos[0,0] = -2+R
             velocities[idx][0] = -velocities[idx][0]
-        if pos[0,1]-R <= -2 or pos[0,1]+R >= 2:
+        if pos[0,0]+R > 8:
+            pos[0,0] = 8-R
+            velocities[idx][0] = -velocities[idx][0]
+        if pos[0,1]-R < -2:
+            pos[0,1] = -2+R
+            velocities[idx][1] = -velocities[idx][1]
+        if pos[0,1]+R > 2:
+            pos[0,1] = 2-R
             velocities[idx][1] = -velocities[idx][1]
 
     # Collisions
@@ -167,7 +171,7 @@ def animate(frame):
     for idx, patch in enumerate(patches_list):
         patch.center = (positions[idx][0,0], positions[idx][0,1])
 
-    # Fin du tour
+    # Fin du tour si la blanche est immobile
     if np.linalg.norm(velocities[0])<0.05:
         velocities[0] = np.array([0.0,0.0])
         player = (player+1)%2
